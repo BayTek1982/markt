@@ -123,7 +123,7 @@ const BN="https://data-api.binance.vision/api/v3/";
 const IDX={"^GDAXI":["DAX","Pkt."],"^MDAXI":["MDAX","Pkt."],"^TECDAX":["TecDAX","Pkt."],"^STOXX50E":["Euro Stoxx 50","Pkt."],
   "^GSPC":["S&P 500","Pkt."],"^NDX":["Nasdaq 100","Pkt."],"^DJI":["Dow Jones","Pkt."],"^RUT":["Russell 2000","Pkt."],
   "^HSI":["Hang Seng","Pkt."],"^N225":["Nikkei 225","Pkt."],"^KS11":["KOSPI","Pkt."],
-  "GC=F":["Gold","$"],"SI=F":["Silber","$"],"CL=F":["Öl (WTI)","$"]};
+  "GC=F":["Gold","$"],"SI=F":["Silber","$"],"CL=F":["Öl (WTI)","$"],"BZ=F":["Öl (Brent)","$"],"NG=F":["Erdgas","$"],"HG=F":["Kupfer","$"],"PL=F":["Platin","$"],"PA=F":["Palladium","$"]};
 const KNAME={BTC:"Bitcoin",ETH:"Ethereum",SOL:"Solana",SUI:"Sui",XRP:"XRP",BNB:"BNB",DOGE:"Dogecoin",ADA:"Cardano",TRX:"TRON",LINK:"Chainlink",AVAX:"Avalanche",XLM:"Stellar",
   HBAR:"Hedera",LTC:"Litecoin",DOT:"Polkadot",BCH:"Bitcoin Cash",SHIB:"Shiba Inu",TON:"Toncoin",UNI:"Uniswap",NEAR:"NEAR",APT:"Aptos",AAVE:"Aave",PEPE:"Pepe",ICP:"Internet Computer",
   ETC:"Ethereum Classic",ARB:"Arbitrum",OP:"Optimism",ATOM:"Cosmos",FIL:"Filecoin",INJ:"Injective",SEI:"Sei",TAO:"Bittensor",ENA:"Ethena",ONDO:"Ondo",RENDER:"Render",HYPE:"Hyperliquid",WLD:"Worldcoin",TIA:"Celestia",POL:"Polygon",ALGO:"Algorand",VET:"VeChain",FET:"Fetch.ai",JUP:"Jupiter"};
@@ -133,7 +133,7 @@ const CCY={"$":"USD","HK$":"HKD","¥":"JPY","₩":"KRW"};
 const DEF_GROUPS=[{k:"krypto",n:"Krypto",t:["k:BTC","k:ETH","k:SOL","k:SUI","k:XRP","k:BNB","k:DOGE","k:ADA","k:LINK"]},
   {k:"index",n:"Indizes",t:["a:^GDAXI","a:^TECDAX","a:^STOXX50E","a:^DJI","a:^NDX","a:^GSPC","a:^MDAXI","a:^RUT","a:^N225"]},
   {k:"aktie",n:"Aktien",t:["a:NVDA","a:AAPL","a:MSFT","a:TSLA","a:AMZN","a:SAP.DE"]},
-  {k:"rohstoff",n:"Rohstoffe",t:["a:GC=F","a:SI=F","a:CL=F"]}];
+  {k:"rohstoff",n:"Rohstoffe",t:["a:GC=F","a:SI=F","a:HG=F","a:PL=F","a:PA=F","a:CL=F","a:BZ=F","a:NG=F"]}];
 const cloneG=g=>g.filter(x=>x&&typeof x==="object").map(x=>({k:String(x.k||""),n:String(x.n||"Thema").slice(0,30),t:(Array.isArray(x.t)?x.t:[]).filter(id=>/^[ak]:[A-Za-z0-9.^=\-]{1,15}$/.test(id))}));
 const RANGES=["1T","1W","1M","3M","1J","MAX"];
 
