@@ -46,6 +46,14 @@ h2{font-size:1.05rem;font-weight:800;margin:0}
 .tile .d{font-size:.84rem}
 .tile.dd{background:var(--t-dd)}.tile.d1{background:var(--t-d)}.tile.u1{background:var(--t-u)}.tile.uu{background:var(--t-uu)}
 .tile .x{position:absolute;top:3px;right:3px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.45);color:#fff;font-size:.9rem;line-height:24px}
+.grp{margin-top:16px}.grp:first-of-type{margin-top:10px}.grp>.label{margin-bottom:6px;font-size:.78rem}
+.ghead{display:flex;gap:6px;margin-bottom:6px}.ghead input{flex:1;min-width:0;font:700 .95rem var(--f-body);background:var(--bg);border:1px solid var(--line);color:var(--fg);border-radius:8px;padding:8px 10px}
+.tile.ed{background:var(--accent);color:var(--accent-ink)}.tile.ed .pen{font-size:1.25rem;line-height:1.3}
+.tile.add{background:none;border:2px dashed var(--line);color:var(--muted);font-size:1.7rem}
+.editbar{display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap;margin-top:8px}.editbar button{font:700 .86rem var(--f-body);letter-spacing:.03em;text-transform:uppercase;border:0;background:none;color:var(--accent);padding:10px 6px;cursor:pointer}
+.modal{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.55);display:grid;justify-items:center;align-items:start;padding:max(14px,env(safe-area-inset-top)) 10px 10px}
+.sheet{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;width:min(560px,100%);max-height:88vh;overflow:auto;display:grid;gap:10px}
+.sheet input{width:100%;font:600 1rem var(--f-body);background:var(--bg);border:1px solid var(--line);color:var(--fg);border-radius:9px;padding:10px 12px}
 /* Listen */
 .list{display:grid}
 .item{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:11px 2px;border:0;border-bottom:1px solid var(--line);background:none;color:var(--fg);text-align:left;cursor:pointer;font-family:var(--f-body);width:100%}
@@ -121,7 +129,12 @@ const KNAME={BTC:"Bitcoin",ETH:"Ethereum",SOL:"Solana",SUI:"Sui",XRP:"XRP",BNB:"
   ETC:"Ethereum Classic",ARB:"Arbitrum",OP:"Optimism",ATOM:"Cosmos",FIL:"Filecoin",INJ:"Injective",SEI:"Sei",TAO:"Bittensor",ENA:"Ethena",ONDO:"Ondo",RENDER:"Render",HYPE:"Hyperliquid",WLD:"Worldcoin",TIA:"Celestia",POL:"Polygon",ALGO:"Algorand",VET:"VeChain",FET:"Fetch.ai",JUP:"Jupiter"};
 const STABLE=/^(USDC|FDUSD|TUSD|USDP|DAI|EUR|BUSD|USD1|USDE|AEUR|EURI|XUSD|BFUSD|PAXG)$/;
 const CCY={"$":"USD","HK$":"HKD","¥":"JPY","₩":"KRW"};
-const DEF_TILES=["k:BTC","a:^TECDAX","k:SOL","a:^STOXX50E","a:^DJI","a:^NDX","a:NVDA","k:ETH","k:SUI","a:GC=F","a:SI=F","a:CL=F"];
+// Themen der Marktübersicht (k = Art, damit neue Kacheln im passenden Thema landen)
+const DEF_GROUPS=[{k:"krypto",n:"Krypto",t:["k:BTC","k:ETH","k:SOL","k:SUI","k:XRP","k:BNB","k:DOGE","k:ADA","k:LINK"]},
+  {k:"index",n:"Indizes",t:["a:^GDAXI","a:^TECDAX","a:^STOXX50E","a:^DJI","a:^NDX","a:^GSPC","a:^MDAXI","a:^RUT","a:^N225"]},
+  {k:"aktie",n:"Aktien",t:["a:NVDA","a:AAPL","a:MSFT","a:TSLA","a:AMZN","a:SAP.DE"]},
+  {k:"rohstoff",n:"Rohstoffe",t:["a:GC=F","a:SI=F","a:CL=F"]}];
+const cloneG=g=>g.filter(x=>x&&typeof x==="object").map(x=>({k:String(x.k||""),n:String(x.n||"Thema").slice(0,30),t:(Array.isArray(x.t)?x.t:[]).filter(id=>/^[ak]:[A-Za-z0-9.^=\-]{1,15}$/.test(id))}));
 const RANGES=["1T","1W","1M","3M","1J","MAX"];
 
 const $=id=>document.getElementById(id);
@@ -143,16 +156,21 @@ const fTime=t=>{const d=new Date(t);return p2(d.getHours())+":"+p2(d.getMinutes(
 
 // ---------- Zustand ----------
 const saved=LS("bmk1")||{};
-const S={tiles:Array.isArray(saved.tiles)?saved.tiles:DEF_TILES.slice(),wl:Array.isArray(saved.wl)?saved.wl:["k:BTC","k:ETH","k:SOL","a:NVDA"],range:RANGES.includes(saved.range)?saved.range:"1T",tops:saved.tops||"dax",edit:false,view:"",id:null};
-const save=()=>LS("bmk1",{tiles:S.tiles,wl:S.wl,range:S.range,tops:S.tops});
-const D={A:{},groups:{},K:{},kList:[],stand:null,kz:null,fx:null,okA:false,okK:false};
+const S={groups:Array.isArray(saved.groups)&&saved.groups.length?cloneG(saved.groups):cloneG(DEF_GROUPS),ed:null,wl:Array.isArray(saved.wl)?saved.wl:["k:BTC","k:ETH","k:SOL","a:NVDA"],range:RANGES.includes(saved.range)?saved.range:"1T",tops:saved.tops||"dax",edit:false,view:"",id:null};
+const save=()=>LS("bmk1",{groups:S.groups,wl:S.wl,range:S.range,tops:S.tops});
+const D={A:{},RU:null,groups:{},K:{},kList:[],stand:null,kz:null,fx:null,okA:false,okK:false};
 
 // ---------- Daten ----------
 async function loadStocks(){
   const j=await getJSON("https://raw.githubusercontent.com/BayTek1982/coin-scanner/main/data/stocks.json?t="+Math.floor(Date.now()/3e5),30000);const A={};D.stand=j.updated;
   for(const[k,ix]of Object.entries(j.indices||{})){D.groups[k]=ix.name;
     for(const it of ix.items||[]){const a=A[it.y]||(A[it.y]={y:it.y,n:it.n,cur:ix.cur,g:[]});a.p=it.p;a.d=it.d;a.w=it.w;a.m=it.m;a.mc=it.mc;a.sec=it.sec;a.g.push(k)}}
-  D.A=A;D.okA=true}
+  D.A=A;D.okA=true;mergeRussell()}
+// Russell 2000: eigene Datei, nur Kurs + 1-Monats-Verlauf (keine Kerzen)
+function mergeRussell(){const ix=D.RU;if(!ix)return;D.groups.rut=ix.name||"Russell 2000";
+  for(const it of ix.items||[]){const a=D.A[it.y];if(a){if(!a.g.includes("rut"))a.g.push("rut");continue}
+    D.A[it.y]={y:it.y,n:it.n,cur:ix.cur||"$",g:["rut"],p:it.p,d:it.d,w:it.w,m:it.m,mc:it.mc,sec:it.sec,spark:it.spark,rut:true}}}
+async function loadRussell(){const j=await getJSON("https://raw.githubusercontent.com/BayTek1982/coin-scanner/main/data/russell.json?t="+Math.floor(Date.now()/18e5),45000);const ix=(j.indices||{}).rut;D.RU=ix?{...ix,updated:j.updated}:null;mergeRussell()}
 async function loadCrypto(){
   const t=await getJSON(BN+"ticker/24hr?type=MINI");const K={};
   for(const x of t){if(!/USDT$/.test(x.symbol)||+x.closeTime<Date.now()-2*864e5)continue;const s=x.symbol.slice(0,-4);if(STABLE.test(s))continue;
@@ -187,18 +205,55 @@ async function quote(id){const{m,s}=parse(id);
 
 // ---------- Übersicht ----------
 const tileCls=d=>!ok(d)?"":d<=-2?"dd":d<0?"d1":d<2?"u1":"uu";
-function vUebersicht(){
+const inTiles=id=>S.groups.some(g=>g.t.includes(id));
+const kindKey=id=>id[0]==="k"?"krypto":id.includes("=")?"rohstoff":id[2]==="^"?"index":"aktie";
+const tileName=id=>{const m=meta(id);return m.m==="k"?m.code:m.name};
+function vUebersicht(){if(S.edit)return vEdit();
   const st=D.stand?new Date(D.stand):null;
-  $("view").innerHTML=`<div class="card"><div class="row"><h2>Marktübersicht</h2><div class="row" style="gap:6px">
-      ${S.edit?`<button class="btn" id="tReset">Standard</button>`:""}<button class="ico ${S.edit?"on":""}" id="tEdit" title="Kacheln bearbeiten" aria-label="Kacheln bearbeiten">✎</button></div></div>
-    ${S.edit?`<div class="sub" style="margin:6px 0">× entfernt eine Kachel. Neue Kachel: oben einen Wert suchen und dort „▦ Zur Übersicht“ antippen.</div>`:""}
-    <div class="tiles" style="margin-top:10px">${S.tiles.map(id=>{const m=meta(id);return`<button class="tile" data-id="${esc(id)}"><span class="n">${esc(m.m==="k"?m.code:m.name)}</span><span class="p">…</span><span class="d">&nbsp;</span>${S.edit?`<span class="x" data-x="1">×</span>`:""}</button>`}).join("")}</div>
-    <div class="sub" style="margin-top:10px">${st?"Aktien · Stand "+fDate(st)+" "+fTime(st)+" Uhr":"Aktienkurse werden geladen …"} · Krypto ${D.okK?"live (24 Std.)":"nicht erreichbar"}</div></div>`;
-  $("tEdit").onclick=()=>{S.edit=!S.edit;vUebersicht()};
-  if($("tReset"))$("tReset").onclick=()=>{S.tiles=DEF_TILES.slice();save();vUebersicht()};
-  document.querySelectorAll(".tile").forEach(el=>{const id=el.dataset.id;
-    el.onclick=e=>{if(S.edit){if(e.target.dataset.x){S.tiles=S.tiles.filter(x=>x!==id);save();vUebersicht()}return}go(id)};
-    quote(id).then(q=>{if(!q||!el.isConnected)return;el.querySelector(".p").textContent=fp(q.p);el.querySelector(".d").textContent=fpc(q.d);el.classList.add(tileCls(q.d)||"x0")}).catch(()=>{el.querySelector(".p").textContent="–"})})}
+  $("view").innerHTML=`<div class="card"><div class="row"><h2>Marktübersicht</h2><button class="ico" id="tEdit" title="Kacheln bearbeiten" aria-label="Kacheln bearbeiten">✎</button></div>
+    ${S.groups.filter(g=>g.t.length).map(g=>`<div class="grp"><div class="label">${esc(g.n)}</div><div class="tiles">${g.t.map(id=>`<button class="tile" data-id="${esc(id)}"><span class="n">${esc(tileName(id))}</span><span class="p">…</span><span class="d">&nbsp;</span></button>`).join("")}</div></div>`).join("")||`<div class="sub" style="margin-top:8px">Noch keine Kacheln. Über den Stift ✎ kannst du welche anlegen.</div>`}
+    <div class="sub" style="margin-top:12px">${st?"Aktien · Stand "+fDate(st)+" "+fTime(st)+" Uhr":"Aktienkurse werden geladen …"} · Krypto ${D.okK?"live (24 Std.)":"nicht erreichbar"}</div></div>`;
+  $("tEdit").onclick=()=>{S.edit=true;S.ed=cloneG(S.groups);vEdit()};
+  const Q={};
+  document.querySelectorAll(".tile").forEach(el=>{const id=el.dataset.id;el.onclick=()=>go(id);
+    (Q[id]||(Q[id]=quote(id))).then(q=>{if(!q||!el.isConnected)return;el.querySelector(".p").textContent=fp(q.p);el.querySelector(".d").textContent=fpc(q.d);el.classList.add(tileCls(q.d)||"x0")}).catch(()=>{el.querySelector(".p").textContent="–"})})}
+// Bearbeiten: Themen und Kacheln ändern, erst „Speichern“ übernimmt
+function vEdit(){const E=S.ed;
+  $("view").innerHTML=`<div class="card"><h2>Marktübersicht bearbeiten</h2>
+    <div class="editbar"><button id="eReset">Zurücksetzen</button><span><button id="eCancel">Abbrechen</button><button id="eSave">Speichern</button></span></div>
+    <div class="sub">Kachel antippen = anderen Wert wählen, verschieben oder entfernen. „+“ = neue Kachel im Thema.</div>
+    ${E.map((g,gi)=>`<div class="grp"><div class="ghead"><input data-g="${gi}" value="${esc(g.n)}" maxlength="30" aria-label="Name des Themas"><button class="ico" data-up="${gi}" title="Thema nach oben" aria-label="Thema nach oben"${gi?"":" disabled"}>↑</button><button class="ico" data-del="${gi}" title="Thema löschen" aria-label="Thema löschen">🗑</button></div>
+      <div class="tiles">${g.t.map((id,ti)=>`<button class="tile ed" data-g="${gi}" data-t="${ti}"><span class="n">${esc(tileName(id))}</span><span class="pen">✎</span></button>`).join("")}<button class="tile add" data-g="${gi}" data-t="-1" aria-label="Neue Kachel">+</button></div></div>`).join("")}
+    <div style="margin-top:16px"><button class="btn" id="eAdd">+ Neues Thema</button></div></div>`;
+  $("eReset").onclick=()=>{S.ed=cloneG(DEF_GROUPS);vEdit();toast("Standard geladen – mit „Speichern“ übernehmen")};
+  $("eCancel").onclick=()=>{S.edit=false;S.ed=null;vUebersicht()};
+  $("eSave").onclick=()=>{S.groups=cloneG(S.ed);S.edit=false;S.ed=null;save();vUebersicht();toast("Gespeichert")};
+  $("eAdd").onclick=()=>{E.push({k:"",n:"Neues Thema",t:[]});vEdit();const i=document.querySelector(`.ghead input[data-g="${E.length-1}"]`);if(i){i.focus();i.select()}};
+  document.querySelectorAll(".ghead input").forEach(i=>i.oninput=()=>{E[+i.dataset.g].n=i.value});
+  document.querySelectorAll("[data-up]").forEach(b=>b.onclick=()=>{const i=+b.dataset.up;if(i>0){[E[i-1],E[i]]=[E[i],E[i-1]];vEdit()}});
+  document.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{E.splice(+b.dataset.del,1);vEdit()});
+  document.querySelectorAll(".tile[data-t]").forEach(b=>b.onclick=()=>picker(+b.dataset.g,+b.dataset.t))}
+function picker(gi,ti){const E=S.ed,g=E[gi],isNew=ti<0,cur=isNew?null:g.t[ti];
+  const box=document.createElement("div");box.className="modal";
+  box.innerHTML=`<div class="sheet"><div class="row"><h2>${isNew?"Neue Kachel in „"+esc(g.n)+"“":esc(tileName(cur))+" ändern"}</h2><button class="ico" id="pX" aria-label="Schließen">×</button></div>
+    ${isNew?"":`<div class="links"><button class="btn" id="pL"${ti>0?"":" disabled"}>◀ Nach vorne</button><button class="btn" id="pR"${ti<g.t.length-1?"":" disabled"}>Nach hinten ▶</button><button class="btn" id="pDel">🗑 Entfernen</button></div>`}
+    <input id="pq" type="search" placeholder="${isNew?"Aktie, Index oder Coin suchen …":"Ersetzen durch: Aktie, Index oder Coin suchen …"}" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <div class="list" id="pr"></div></div>`;
+  document.body.appendChild(box);
+  const close=()=>{box.remove();vEdit()};
+  box.addEventListener("click",e=>{if(e.target===box)close()});box.querySelector("#pX").onclick=close;
+  if(!isNew){box.querySelector("#pL").onclick=()=>{[g.t[ti-1],g.t[ti]]=[g.t[ti],g.t[ti-1]];close()};
+    box.querySelector("#pR").onclick=()=>{[g.t[ti+1],g.t[ti]]=[g.t[ti],g.t[ti+1]];close()};
+    box.querySelector("#pDel").onclick=()=>{g.t.splice(ti,1);close()}}
+  const pick=id=>{if(g.t.includes(id)&&id!==cur){toast("Ist in diesem Thema schon vorhanden");return}if(isNew)g.t.push(id);else g.t[ti]=id;close()};
+  const show=()=>{const q=box.querySelector("#pq").value.trim();let ids,head="";
+    if(q)ids=search(q).map(x=>x.id);
+    else{const k=g.k||(g.t[0]?kindKey(g.t[0]):"");head="Vorschläge";
+      ids=k==="krypto"?D.kList.slice(0,15).map(x=>"k:"+x.s):k==="index"?Object.keys(IDX).filter(y=>y[0]==="^").map(y=>"a:"+y):k==="rohstoff"?Object.keys(IDX).filter(y=>y.includes("=")).map(y=>"a:"+y):Object.values(D.A).filter(a=>!a.rut&&ok(a.mc)&&a.cur==="$").sort((a,b)=>b.mc-a.mc).slice(0,15).map(a=>"a:"+a.y);
+      ids=ids.filter(id=>!g.t.includes(id))}
+    box.querySelector("#pr").innerHTML=(head&&ids.length?`<div class="label" style="margin-top:4px">${head}</div>`:"")+(ids.length?ids.map(id=>{const m=meta(id);return`<button class="item" data-id="${esc(id)}"><span><div class="n">${esc(m.name)}</div><div class="s">${esc(m.code)} · ${m.kind}</div></span><span></span><span class="s">wählen</span></button>`}).join(""):q?`<div class="sub">Nichts gefunden.</div>`:"");
+    box.querySelectorAll("#pr .item").forEach(b=>b.onclick=()=>pick(b.dataset.id))};
+  box.querySelector("#pq").addEventListener("input",show);show()}
 
 // ---------- Watchlist ----------
 function itemHTML(id,q){const m=meta(id);return`<button class="item" data-id="${esc(id)}"><span><div class="n">${esc(m.name)}</div><div class="s">${esc(m.code)} · ${m.kind}</div></span><span class="p">${q?fp(q.p):"…"}<div class="s">${esc(m.cur)}</div></span><span class="badge ${q?cls(q.d):""}">${q?fpc(q.d):"…"}</span></button>`}
@@ -210,13 +265,13 @@ function vWatchlist(){
 
 // ---------- Tops & Flops ----------
 function vTops(){
-  const keys=[...Object.keys(D.groups),"krypto"];if(!keys.includes(S.tops))S.tops=keys[0];
+  const keys=[...Object.keys(D.groups).filter(k=>k!=="rut"),"rut","krypto"];if(!keys.includes(S.tops))S.tops=keys[0];
   let rows;
   if(S.tops==="krypto")rows=D.kList.slice(0,100).filter(k=>ok(k.d)).map(k=>({id:"k:"+k.s,p:k.p,d:k.d}));
   else rows=Object.values(D.A).filter(a=>a.g.includes(S.tops)&&ok(a.d)&&ok(a.p)).map(a=>({id:"a:"+a.y,p:a.p,d:a.d}));
   rows.sort((a,b)=>b.d-a.d);const top=rows.slice(0,10),flop=rows.slice(-10).reverse();
-  const L=a=>a.length?a.map(r=>itemHTML(r.id,r)).join(""):`<div class="sub">Keine Daten.</div>`;
-  $("view").innerHTML=`<div class="card"><div class="chips">${keys.map(k=>`<button data-k="${k}" aria-pressed="${k===S.tops}">${esc(k==="krypto"?"Krypto · Top 100":D.groups[k])}</button>`).join("")}</div></div>
+  const L=a=>a.length?a.map(r=>itemHTML(r.id,r)).join(""):`<div class="sub">${S.tops==="rut"&&!D.RU?"Russell 2000 wird geladen …":"Keine Daten."}</div>`;
+  $("view").innerHTML=`<div class="card"><div class="chips">${keys.map(k=>`<button data-k="${k}" aria-pressed="${k===S.tops}">${esc(k==="krypto"?"Krypto · Top 100":k==="rut"?"Russell 2000":D.groups[k])}</button>`).join("")}</div></div>
     <div class="two"><div class="card"><h2>Gewinner des Tages</h2><div class="list" style="margin-top:6px">${L(top)}</div></div>
     <div class="card"><h2>Verlierer des Tages</h2><div class="list" style="margin-top:6px">${L(flop)}</div></div></div>`;
   document.querySelectorAll(".chips button").forEach(b=>b.onclick=()=>{S.tops=b.dataset.k;save();vTops()});bindItems($("view"))}
@@ -224,7 +279,7 @@ function vTops(){
 // ---------- Detail ----------
 let CH=null,DT=null; // Chart-Zustand, Detail-Daten
 function vDetail(id){
-  const m=meta(id),inWl=S.wl.includes(id),inT=S.tiles.includes(id);
+  const m=meta(id),inWl=S.wl.includes(id),inT=inTiles(id);
   const grp=m.a?m.a.g.map(k=>D.groups[k]).join(", "):"";
   $("view").innerHTML=`<div class="detail">
    <div class="card">
@@ -243,7 +298,7 @@ function vDetail(id){
      ${m.m==="k"?`<a class="btn" target="_blank" rel="noopener" href="https://www.coingecko.com/de/search?query=${encodeURIComponent(m.s)}">CoinGecko</a>`:m.kind==="Aktie"?`<a class="btn" target="_blank" rel="noopener" href="https://finance.yahoo.com/quote/${encodeURIComponent(m.s)}">Yahoo Finance</a>`:""}
    </div></div>`;
   $("bWl").onclick=()=>{const i=S.wl.indexOf(id);if(i>=0){S.wl.splice(i,1);toast("Aus der Watchlist entfernt")}else{S.wl.push(id);toast("Zur Watchlist hinzugefügt")}save();$("bWl").classList.toggle("on",i<0);$("bWl").textContent=i<0?"★":"☆"};
-  $("bT").onclick=()=>{const i=S.tiles.indexOf(id);if(i>=0){S.tiles.splice(i,1);toast("Kachel entfernt")}else{S.tiles.push(id);toast("Als Kachel zur Übersicht hinzugefügt")}save();$("bT").classList.toggle("on",i<0)};
+  $("bT").onclick=()=>{const was=inTiles(id);if(was){S.groups.forEach(g=>{g.t=g.t.filter(x=>x!==id)});toast("Kachel entfernt")}else{const k=kindKey(id);let g=S.groups.find(x=>x.k===k);if(!g){g={k,n:{krypto:"Krypto",index:"Indizes",aktie:"Aktien",rohstoff:"Rohstoffe"}[k],t:[]};S.groups.push(g)}g.t.push(id);toast("Als Kachel im Thema „"+g.n+"“ hinzugefügt")}save();$("bT").classList.toggle("on",!was)};
   document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{S.range=b.dataset.r;save();document.querySelectorAll(".seg button").forEach(x=>x.setAttribute("aria-pressed",x===b));loadChart(id)});
   bindChart();DT={id};CH=null;
   paintHead(id);loadChart(id);loadKz(id)}
@@ -266,6 +321,9 @@ async function series(id,r){const{m,s}=parse(id);
     const j=await getJSON(`${BN}klines?symbol=${encodeURIComponent(s)}USDT&interval=${cfg[0]}&limit=${cfg[1]}`);
     if(!Array.isArray(j)||!j.length)throw new Error("keine Daten");
     return{pts:j.map(x=>({t:+x[0],c:+x[4]})),ref:r==="1T"?+j[0][1]:null,src:"Binance"}}
+  const ru=D.A[s];
+  if(ru&&ru.rut){const sp=(ru.spark||[]).filter(ok);if(!sp.length||!ok(ru.p))throw new Error("keine Daten");const t=D.RU&&D.RU.updated?Date.parse(D.RU.updated):Date.now(),n=sp.length;
+    return{pts:[...sp.map((c,i)=>({t:t-30*864e5*(n-i)/n,c})),{t,c:ru.p}],ref:null,fix:"3M",src:"grober 1-Monats-Verlauf · mehr gibt es für Russell-2000-Werte nicht"}}
   const c=await candles(s),h=c["1h"]||[],d=c["1d"]||[],w=c["1w"]||[];
   const since=(rows,days)=>{if(!rows.length)return[];const t0=rows[rows.length-1][0]-days*864e5;return rows.filter(x=>x[0]>=t0).map(x=>({t:x[0],c:x[4]}))};
   if(r==="1T"){const ia=await intraday(s);
@@ -283,9 +341,9 @@ let chartTok=0;
 async function loadChart(id){const tok=++chartTok,r=S.range;$("cmsg").hidden=false;$("cmsg").textContent="Chart wird geladen …";$("tip").hidden=true;
   try{const sr=await series(id,r);if(tok!==chartTok||!$("cv"))return;
     if(!sr.pts||sr.pts.length<2)throw new Error("zu wenig Daten");
-    CH={...sr,r,hover:null,cur:meta(id).m==="k"?"$":meta(id).cur};$("cmsg").hidden=true;draw();
+    CH={...sr,r:sr.fix||r,hover:null,cur:meta(id).m==="k"?"$":meta(id).cur};$("cmsg").hidden=true;draw();
     const base=ok(CH.ref)?CH.ref:CH.pts[0].c,last=CH.pts[CH.pts.length-1].c,ch=(last/base-1)*100;
-    const lab={"1T":"Heute / letzter Handelstag","1W":"1 Woche","1M":"1 Monat","3M":"3 Monate","1J":"1 Jahr","MAX":"Gesamter Zeitraum"}[r];
+    const lab={"1T":"Heute / letzter Handelstag","1W":"1 Woche","1M":"1 Monat","3M":"3 Monate","1J":"1 Jahr","MAX":"Gesamter Zeitraum"}[sr.fix?"1M":r];
     $("dRange").innerHTML=`${lab}: <b class="${cls(ch)}" style="color:var(--${ch>=0?"up":"down"})">${fpc(ch)}</b> · ${esc(sr.src)}`}
   catch(e){if(tok!==chartTok||!$("cv"))return;CH=null;const g=$("cv").getContext("2d");g.clearRect(0,0,$("cv").width,$("cv").height);$("cmsg").hidden=false;$("cmsg").textContent="Für diesen Zeitraum sind keine Kurse verfügbar.";$("dRange").innerHTML="&nbsp;"}}
 function fx_(t,r,full){if(r==="1T")return full?fDate(t)+" "+fTime(t):fTime(t);if(r==="1W"||r==="1M")return full?fDate(t)+" "+fTime(t):fDate(t);return fDateY(t)}
@@ -334,6 +392,7 @@ async function loadKz(id){const m=meta(id);
       rows.push(["52-Wochen-Hoch",money(hh)],["52-Wochen-Tief",money(ll)],["Abstand zum Hoch",fpc((p/hh-1)*100),"down"])}
     const back=days=>{const t=last[0]-days*864e5;for(let i=d.length-1;i>=0;i--)if(d[i][0]<=t)return(p/d[i][4]-1)*100;return null};
     rows.push(perfRow("1 Woche",back(7)),perfRow("1 Monat",back(30)),perfRow("3 Monate",back(91)),perfRow("6 Monate",back(182)),perfRow("1 Jahr",back(365)))}
+  if(!last&&m.a)rows.push(perfRow("1 Woche",m.a.w),perfRow("1 Monat",m.a.m));
   let note="";
   if(m.a){const k=(KZ.s||{})[m.s]||{},fc=k.fc||"";
     rows.push(["Börsenwert",big(m.a.mc,cur)],["KGV",ok(k.pe)?nf(k.pe,1):null],["KGV (erwartet)",ok(k.fpe)?nf(k.fpe,1):null],["Gewinn je Aktie",ok(k.eps)?nf(k.eps,2)+" "+cur:null],
@@ -342,7 +401,7 @@ async function loadKz(id){const m=meta(id);
       ["Umsatz (12 Mon.)",big(k.rev,fc)],["Gewinn (12 Mon.)",big(k.ni,fc)],["Gewinnmarge",ok(k.mar)?nf(k.mar*100,1)+" %":null],["Eigenkapitalrendite",ok(k.roe)?nf(k.roe*100,1)+" %":null],
       ["Verschuldung / Eigenkapital",ok(k.de)?nf(k.de,0)+" %":null],["Kursziel Analysten (Ø)",ok(k.tgt)?nf(k.tgt,2)+" "+cur+(p?" ("+fpc((k.tgt/p-1)*100)+")":""):null],
       ["Analysten-Empfehlung",k.rec&&REC[k.rec]?REC[k.rec]+(k.na?" ("+k.na+")":""):null],["Mitarbeiter",ok(k.emp)?nf(k.emp,0):null],["Branche",k.bra||m.a.sec||null],["Land",k.land||null]);
-    note=k.u?"Unternehmenszahlen: Yahoo Finance, Stand "+fDateY(k.u*864e5)+".":"Unternehmenszahlen (KGV, Dividende, Umsatz …) erscheinen nach dem ersten täglichen Datenabruf."}
+    note=k.u?"Unternehmenszahlen: Yahoo Finance, Stand "+fDateY(k.u*864e5)+".":m.a.rut?"Für Russell-2000-Werte gibt es nur Kurs und 1-Monats-Verlauf, keine Unternehmenszahlen.":"Unternehmenszahlen (KGV, Dividende, Umsatz …) erscheinen nach dem ersten täglichen Datenabruf."}
   kzPaint(rows,note)}
 async function loadKzCrypto(id,m){const k=D.K[m.s],rows=[];
   if(k)rows.push(["24-Std.-Hoch",fp(k.h)+" $"],["24-Std.-Tief",fp(k.l)+" $"],["Umsatz 24 Std. (Binance)",big(k.qv,"$")]);
@@ -375,7 +434,7 @@ document.addEventListener("click",e=>{if(!e.target.closest(".sym"))$("sug").hidd
 // ---------- Navigation ----------
 function go(id){location.hash="#"+encodeURIComponent(id)}
 function route(){let h="";try{h=decodeURIComponent(location.hash.slice(1))}catch(e){}
-  S.edit=false;chartTok++;
+  S.edit=false;S.ed=null;document.querySelectorAll(".modal").forEach(x=>x.remove());chartTok++;
   if(valid(h)){S.view="detail";S.id=h;vDetail(h)}
   else{S.id=null;S.view=["watchlist","tops"].includes(h)?h:"uebersicht";({uebersicht:vUebersicht,watchlist:vWatchlist,tops:vTops})[S.view]()}
   document.querySelectorAll("nav a").forEach(a=>a.classList.toggle("on",a.dataset.v===S.view));window.scrollTo(0,0)}
@@ -386,6 +445,7 @@ function refreshView(){if(S.view==="detail"){paintHead(S.id);if(S.id[0]==="k"&&S
 (async function start(){route();
   await Promise.allSettled([loadStocks().catch(()=>{}),loadCrypto().catch(()=>{})]);route();
   if(!D.okA)toast("Aktienkurse konnten nicht geladen werden.");
+  loadRussell().then(()=>{if(S.view==="tops")vTops()}).catch(()=>{});
   setInterval(async()=>{if(document.hidden)return;try{await loadCrypto()}catch(e){}refreshView()},30000);
   setInterval(async()=>{if(document.hidden)return;try{await loadStocks()}catch(e){}},300000)})();
 </script>
