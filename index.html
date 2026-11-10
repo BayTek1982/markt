@@ -200,6 +200,7 @@ function meta(id){const{m,s}=parse(id);
 async function quote(id){const{m,s}=parse(id);
   if(m==="k"){const k=D.K[s];return k?{p:k.p,d:k.d}:null}
   const a=D.A[s];if(a&&ok(a.p))return{p:a.p,d:a.d};
+  const ia=await intraday(s);if(ia&&Array.isArray(ia.k)&&ia.k.length&&ok(ia.pc)&&ia.pc>0){const p=ia.k[ia.k.length-1][1];return{p,d:(p/ia.pc-1)*100}}
   const c=await candles(s),d1=c["1d"]||[];if(d1.length<2)return null;
   const p=d1[d1.length-1][4],v=d1[d1.length-2][4];return{p,d:(p/v-1)*100}}
 
@@ -265,16 +266,25 @@ function vWatchlist(){
 
 // ---------- Tops & Flops ----------
 function vTops(){
-  const keys=[...Object.keys(D.groups).filter(k=>k!=="rut"),"rut","krypto"];if(!keys.includes(S.tops))S.tops=keys[0];
+  const keys=[...Object.keys(D.groups).filter(k=>k!=="rut"),"rut","krypto","idx","roh"];if(!keys.includes(S.tops))S.tops=keys[0];
+  const lab=k=>k==="krypto"?"Krypto · Top 100":k==="rut"?"Russell 2000":k==="idx"?"Indizes":k==="roh"?"Rohstoffe":D.groups[k];
+  const chips=`<div class="card"><div class="chips">${keys.map(k=>`<button data-k="${k}" aria-pressed="${k===S.tops}">${esc(lab(k))}</button>`).join("")}</div></div>`;
+  const bindChips=()=>document.querySelectorAll(".chips button").forEach(b=>b.onclick=()=>{S.tops=b.dataset.k;save();vTops()});
+  if(S.tops==="idx"||S.tops==="roh"){const want=S.tops,ids=Object.keys(IDX).filter(y=>y.includes("=")===(want==="roh")).map(y=>"a:"+y);
+    if(!$("tl")||$("tl").dataset.k!==want)$("view").innerHTML=chips+`<div class="card"><h2>${lab(want)} · nach Tagesänderung</h2><div class="list" id="tl" data-k="${want}" style="margin-top:6px">${ids.map(id=>itemHTML(id)).join("")}</div></div>`;
+    bindChips();bindItems($("view"));
+    Promise.all(ids.map(id=>quote(id).then(q=>q?{id,q}:null).catch(()=>null))).then(r=>{const el=$("tl");if(!el||el.dataset.k!==want||S.view!=="tops")return;
+      const got=r.filter(Boolean).sort((a,b)=>b.q.d-a.q.d),miss=ids.filter(id=>!got.some(x=>x.id===id));
+      el.innerHTML=got.map(x=>itemHTML(x.id,x.q)).join("")+miss.map(id=>itemHTML(id,{p:null,d:null})).join("");bindItems(el)});return}
   let rows;
   if(S.tops==="krypto")rows=D.kList.slice(0,100).filter(k=>ok(k.d)).map(k=>({id:"k:"+k.s,p:k.p,d:k.d}));
   else rows=Object.values(D.A).filter(a=>a.g.includes(S.tops)&&ok(a.d)&&ok(a.p)).map(a=>({id:"a:"+a.y,p:a.p,d:a.d}));
   rows.sort((a,b)=>b.d-a.d);const top=rows.slice(0,10),flop=rows.slice(-10).reverse();
   const L=a=>a.length?a.map(r=>itemHTML(r.id,r)).join(""):`<div class="sub">${S.tops==="rut"&&!D.RU?"Russell 2000 wird geladen …":"Keine Daten."}</div>`;
-  $("view").innerHTML=`<div class="card"><div class="chips">${keys.map(k=>`<button data-k="${k}" aria-pressed="${k===S.tops}">${esc(k==="krypto"?"Krypto · Top 100":k==="rut"?"Russell 2000":D.groups[k])}</button>`).join("")}</div></div>
+  $("view").innerHTML=chips+`
     <div class="two"><div class="card"><h2>Gewinner des Tages</h2><div class="list" style="margin-top:6px">${L(top)}</div></div>
     <div class="card"><h2>Verlierer des Tages</h2><div class="list" style="margin-top:6px">${L(flop)}</div></div></div>`;
-  document.querySelectorAll(".chips button").forEach(b=>b.onclick=()=>{S.tops=b.dataset.k;save();vTops()});bindItems($("view"))}
+  bindChips();bindItems($("view"))}
 
 // ---------- Detail ----------
 let CH=null,DT=null; // Chart-Zustand, Detail-Daten
