@@ -162,8 +162,8 @@ const fTime=t=>{const d=new Date(t);return p2(d.getHours())+":"+p2(d.getMinutes(
 
 // ---------- Zustand ----------
 const saved=LS("bmk1")||{};
-const S={groups:Array.isArray(saved.groups)&&saved.groups.length?cloneG(saved.groups):cloneG(DEF_GROUPS),ed:null,wl:Array.isArray(saved.wl)?saved.wl:["k:BTC","k:ETH","k:SOL","a:NVDA"],range:RANGES.includes(saved.range)?saved.range:"1T",tops:saved.tops||"dax",edit:false,view:"",id:null};
-const save=()=>LS("bmk1",{groups:S.groups,wl:S.wl,range:S.range,tops:S.tops});
+const S={groups:Array.isArray(saved.groups)&&saved.groups.length?cloneG(saved.groups):cloneG(DEF_GROUPS),ed:null,wl:Array.isArray(saved.wl)?saved.wl:["k:BTC","k:ETH","k:SOL","a:NVDA"],range:RANGES.includes(saved.range)?saved.range:"1T",tops:saved.tops||"dax",sort:["eigen","auf","ab"].includes(saved.sort)?saved.sort:"eigen",edit:false,view:"",id:null};
+const save=()=>LS("bmk1",{groups:S.groups,wl:S.wl,range:S.range,tops:S.tops,sort:S.sort});
 const D={A:{},RU:null,groups:{},K:{},kList:[],stand:null,kz:null,fx:null,okA:false,okK:false};
 
 // ---------- Daten ----------
@@ -227,20 +227,30 @@ const tileCls=d=>!ok(d)?"":d<=-2?"dd":d<0?"d1":d<2?"u1":"uu";
 const inTiles=id=>S.groups.some(g=>g.t.includes(id));
 const kindKey=id=>id[0]==="k"?"krypto":id.includes("=")?"rohstoff":id[2]==="^"?"index":"aktie";
 const tileName=id=>{const m=meta(id);return m.m==="k"?m.code:m.name};
+// Sortierung der Kacheln: eigen = wie gespeichert, ab = Gewinner oben, auf = Verlierer oben
+const SORT={eigen:["⇅ Eigene","Eigene Reihenfolge"],ab:["▲ Gewinner","Gewinner oben"],auf:["▼ Verlierer","Verlierer oben"]};
+const LQ={}; // zuletzt bekannte Kurse, damit beim Neuzeichnen nichts springt
+function sortIds(ids){if(S.sort==="eigen")return ids;const f=S.sort==="ab"?-1:1,v=id=>LQ[id]&&ok(LQ[id].d)?LQ[id].d:null;
+  return ids.map((id,i)=>({id,i,d:v(id)})).sort((a,b)=>a.d==null&&b.d==null?a.i-b.i:a.d==null?1:b.d==null?-1:(a.d-b.d)*f||a.i-b.i).map(x=>x.id)}
+function tileHTML(id){const q=LQ[id];return`<button class="tile ${q?tileCls(q.d)||"x0":""}" data-id="${esc(id)}"><span class="n">${esc(tileName(id))}</span><span class="p">${q?fp(q.p):"…"}</span><span class="d">${q?fpc(q.d):"&nbsp;"}</span></button>`}
 function vUebersicht(){if(S.edit)return vEdit();
   const st=D.stand?new Date(D.stand):null;
-  $("view").innerHTML=`<div class="card"><div class="row"><h2>Marktübersicht</h2><button class="ico" id="tEdit" title="Kacheln bearbeiten" aria-label="Kacheln bearbeiten">✎</button></div>
-    ${S.groups.filter(g=>g.t.length).map(g=>`<div class="grp"><div class="label">${esc(g.n)}</div><div class="tiles">${g.t.map(id=>`<button class="tile" data-id="${esc(id)}"><span class="n">${esc(tileName(id))}</span><span class="p">…</span><span class="d">&nbsp;</span></button>`).join("")}</div></div>`).join("")||`<div class="sub" style="margin-top:8px">Noch keine Kacheln. Über den Stift ✎ kannst du welche anlegen.</div>`}
+  $("view").innerHTML=`<div class="card"><div class="row"><h2>Marktübersicht</h2><div class="row" style="gap:6px"><button class="btn" id="tSort" title="Reihenfolge der Kacheln" aria-label="Reihenfolge: ${SORT[S.sort][1]}">${SORT[S.sort][0]}</button><button class="ico" id="tEdit" title="Kacheln bearbeiten" aria-label="Kacheln bearbeiten">✎</button></div></div>
+    ${S.groups.filter(g=>g.t.length).map((g,gi)=>`<div class="grp"><div class="label">${esc(g.n)}</div><div class="tiles" data-g="${gi}">${sortIds(g.t).map(tileHTML).join("")}</div></div>`).join("")||`<div class="sub" style="margin-top:8px">Noch keine Kacheln. Über den Stift ✎ kannst du welche anlegen.</div>`}
     <div class="sub" style="margin-top:12px">${st?"Aktien · Stand "+fDate(st)+" "+fTime(st)+" Uhr":"Aktienkurse werden geladen …"} · Krypto ${D.okK?"live · Änderung seit 0:00 Uhr":"nicht erreichbar"}</div></div>`;
   $("tEdit").onclick=()=>{S.edit=true;S.ed=cloneG(S.groups);vEdit()};
-  const Q={};
-  document.querySelectorAll(".tile").forEach(el=>{const id=el.dataset.id;el.onclick=()=>go(id);
-    (Q[id]||(Q[id]=quote(id))).then(q=>{if(!q||!el.isConnected)return;el.querySelector(".p").textContent=fp(q.p);el.querySelector(".d").textContent=fpc(q.d);el.classList.add(tileCls(q.d)||"x0")}).catch(()=>{el.querySelector(".p").textContent="–"})})}
+  $("tSort").onclick=()=>{S.sort={eigen:"ab",ab:"auf",auf:"eigen"}[S.sort];save();vUebersicht();toast("Reihenfolge: "+SORT[S.sort][1])};
+  document.querySelectorAll(".tile").forEach(el=>el.onclick=()=>go(el.dataset.id));
+  const box=[...document.querySelectorAll(".tiles[data-g]")];
+  box.forEach(tb=>{const els=[...tb.querySelectorAll(".tile")];
+    Promise.all(els.map(el=>{const id=el.dataset.id;
+      return quote(id).then(q=>{if(!q)return;LQ[id]=q;if(!el.isConnected)return;el.querySelector(".p").textContent=fp(q.p);el.querySelector(".d").textContent=fpc(q.d);el.className="tile "+(tileCls(q.d)||"x0")}).catch(()=>{if(el.isConnected&&!LQ[id])el.querySelector(".p").textContent="–"})}))
+    .then(()=>{if(!tb.isConnected||S.sort==="eigen")return;const by={};els.forEach(el=>by[el.dataset.id]=el);sortIds(els.map(el=>el.dataset.id)).forEach(id=>tb.appendChild(by[id]))})})}
 // Bearbeiten: Themen und Kacheln ändern, erst „Speichern“ übernimmt
 function vEdit(){const E=S.ed;
   $("view").innerHTML=`<div class="card"><h2>Marktübersicht bearbeiten</h2>
     <div class="editbar"><button id="eReset">Zurücksetzen</button><span><button id="eCancel">Abbrechen</button><button id="eSave">Speichern</button></span></div>
-    <div class="sub">Kachel antippen = anderen Wert wählen, verschieben oder entfernen. „+“ = neue Kachel im Thema.</div>
+    <div class="sub">Kachel antippen = anderen Wert wählen, verschieben oder entfernen. „+“ = neue Kachel im Thema.${S.sort!=="eigen"?" Hier siehst du deine eigene Reihenfolge; in der Übersicht wird nach Prozent sortiert ("+SORT[S.sort][1]+").":""}</div>
     ${E.map((g,gi)=>`<div class="grp"><div class="ghead"><input data-g="${gi}" value="${esc(g.n)}" maxlength="30" aria-label="Name des Themas"><button class="ico" data-up="${gi}" title="Thema nach oben" aria-label="Thema nach oben"${gi?"":" disabled"}>↑</button><button class="ico" data-del="${gi}" title="Thema löschen" aria-label="Thema löschen">🗑</button></div>
       <div class="tiles">${g.t.map((id,ti)=>`<button class="tile ed" data-g="${gi}" data-t="${ti}"><span class="n">${esc(tileName(id))}</span><span class="pen">✎</span></button>`).join("")}<button class="tile add" data-g="${gi}" data-t="-1" aria-label="Neue Kachel">+</button></div></div>`).join("")}
     <div style="margin-top:16px"><button class="btn" id="eAdd">+ Neues Thema</button></div></div>`;
