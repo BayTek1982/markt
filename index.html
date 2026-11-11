@@ -174,8 +174,20 @@ async function loadRussell(){const j=await getJSON("https://raw.githubuserconten
 async function loadCrypto(){
   const t=await getJSON(BN+"ticker/24hr?type=MINI");const K={};
   for(const x of t){if(!/USDT$/.test(x.symbol)||+x.closeTime<Date.now()-2*864e5)continue;const s=x.symbol.slice(0,-4);if(STABLE.test(s))continue;
-    const p=+x.lastPrice,o=+x.openPrice;K[s]={s,p,d:o?(p/o-1)*100:null,h:+x.highPrice,l:+x.lowPrice,o,qv:+x.quoteVolume}}
-  D.K=K;D.kList=Object.values(K).sort((a,b)=>b.qv-a.qv);D.okK=true}
+    const p=+x.lastPrice,o=+x.openPrice;K[s]={s,p,d:o?(p/o-1)*100:null,h:+x.highPrice,l:+x.lowPrice,o,qv:+x.quoteVolume,day:false}}
+  const list=Object.values(K).sort((a,b)=>b.qv-a.qv);
+  // Wunschliste: Top 100 + Kacheln + Watchlist + geöffneter Coin
+  const want=new Set(list.slice(0,100).map(k=>k.s));
+  [...S.groups.flatMap(g=>g.t),...S.wl,S.id||""].forEach(id=>{if(id[0]==="k"&&K[id.slice(2)])want.add(id.slice(2))});
+  const syms=[...want],tz=tzStr();
+  await Promise.all(Array.from({length:Math.ceil(syms.length/100)},(_,i)=>syms.slice(i*100,i*100+100)).map(async ch=>{
+    try{const j=await getJSON(BN+"ticker/tradingDay?type=MINI&timeZone="+encodeURIComponent(tz)+"&symbols="+encodeURIComponent(JSON.stringify(ch.map(x=>x+"USDT"))),12000);
+      for(const x of j){const k=K[x.symbol.slice(0,-4)],o=+x.openPrice;if(!k||!o)continue;
+        k.h24=k.h;k.l24=k.l;k.o=o;k.d=(k.p/o-1)*100;k.h=+x.highPrice;k.l=+x.lowPrice;k.day=true}}catch(e){}}));
+  D.K=K;D.kList=list;D.okK=true}
+// Zeitzone des Geräts für Binance, z. B. "1:00" (Winter) oder "2:00" (Sommer)
+function tzStr(){const o=-new Date().getTimezoneOffset(),a=Math.abs(o);return(o<0?"-":"")+Math.floor(a/60)+":"+p2(a%60)}
+const midnight=()=>{const d=new Date();d.setHours(0,0,0,0);return d.getTime()};
 const CA={};
 function candles(s){const c=CA[s];if(c&&Date.now()-c.t<3e5)return c.p;
   const p=getJSON(GZ+"c/"+fn(s)+".json?t="+Math.floor(Date.now()/3e5),30000);CA[s]={t:Date.now(),p};p.catch(()=>{delete CA[s]});return p}
@@ -213,7 +225,7 @@ function vUebersicht(){if(S.edit)return vEdit();
   const st=D.stand?new Date(D.stand):null;
   $("view").innerHTML=`<div class="card"><div class="row"><h2>Marktübersicht</h2><button class="ico" id="tEdit" title="Kacheln bearbeiten" aria-label="Kacheln bearbeiten">✎</button></div>
     ${S.groups.filter(g=>g.t.length).map(g=>`<div class="grp"><div class="label">${esc(g.n)}</div><div class="tiles">${g.t.map(id=>`<button class="tile" data-id="${esc(id)}"><span class="n">${esc(tileName(id))}</span><span class="p">…</span><span class="d">&nbsp;</span></button>`).join("")}</div></div>`).join("")||`<div class="sub" style="margin-top:8px">Noch keine Kacheln. Über den Stift ✎ kannst du welche anlegen.</div>`}
-    <div class="sub" style="margin-top:12px">${st?"Aktien · Stand "+fDate(st)+" "+fTime(st)+" Uhr":"Aktienkurse werden geladen …"} · Krypto ${D.okK?"live (24 Std.)":"nicht erreichbar"}</div></div>`;
+    <div class="sub" style="margin-top:12px">${st?"Aktien · Stand "+fDate(st)+" "+fTime(st)+" Uhr":"Aktienkurse werden geladen …"} · Krypto ${D.okK?"live · Änderung seit 0:00 Uhr":"nicht erreichbar"}</div></div>`;
   $("tEdit").onclick=()=>{S.edit=true;S.ed=cloneG(S.groups);vEdit()};
   const Q={};
   document.querySelectorAll(".tile").forEach(el=>{const id=el.dataset.id;el.onclick=()=>go(id);
@@ -295,7 +307,7 @@ function vDetail(id){
    <div class="card">
     <div class="row" style="align-items:flex-start"><div><div class="nm">${esc(m.name)}</div><div class="sub">${esc(m.code)} · ${m.kind}${grp?" · "+esc(grp):""}</div></div>
       <div class="row" style="gap:6px"><button class="ico ${inWl?"on":""}" id="bWl" title="Watchlist" aria-label="Watchlist">${inWl?"★":"☆"}</button><button class="ico ${inT?"on":""}" id="bT" title="Zur Übersicht" aria-label="Zur Übersicht">▦</button></div></div>
-    <div class="row" style="margin-top:8px"><div class="px" id="dPx">…</div><span class="badge big" id="dPc">…</span></div>
+    <div class="row" style="margin-top:8px;align-items:flex-start"><div class="px" id="dPx">…</div><div style="text-align:right"><span class="badge big" id="dPc">…</span><div class="sub" id="dPcL">&nbsp;</div></div></div>
     <div class="sub" id="dMeta">&nbsp;</div>
     <div class="chart" id="chart"><canvas id="cv"></canvas><div class="tip" id="tip" hidden></div><div class="msg" id="cmsg">Chart wird geladen …</div></div>
     <div class="seg" role="group" aria-label="Zeitraum">${RANGES.map(r=>`<button data-r="${r}" aria-pressed="${r===S.range}">${r}</button>`).join("")}</div>
@@ -309,17 +321,18 @@ function vDetail(id){
    </div></div>`;
   $("bWl").onclick=()=>{const i=S.wl.indexOf(id);if(i>=0){S.wl.splice(i,1);toast("Aus der Watchlist entfernt")}else{S.wl.push(id);toast("Zur Watchlist hinzugefügt")}save();$("bWl").classList.toggle("on",i<0);$("bWl").textContent=i<0?"★":"☆"};
   $("bT").onclick=()=>{const was=inTiles(id);if(was){S.groups.forEach(g=>{g.t=g.t.filter(x=>x!==id)});toast("Kachel entfernt")}else{const k=kindKey(id);let g=S.groups.find(x=>x.k===k);if(!g){g={k,n:{krypto:"Krypto",index:"Indizes",aktie:"Aktien",rohstoff:"Rohstoffe"}[k],t:[]};S.groups.push(g)}g.t.push(id);toast("Als Kachel im Thema „"+g.n+"“ hinzugefügt")}save();$("bT").classList.toggle("on",!was)};
-  document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{S.range=b.dataset.r;save();document.querySelectorAll(".seg button").forEach(x=>x.setAttribute("aria-pressed",x===b));loadChart(id)});
+  document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{S.range=b.dataset.r;save();document.querySelectorAll(".seg button").forEach(x=>x.setAttribute("aria-pressed",x===b));CH=null;$("dPc").textContent="…";$("dPc").className="badge big";$("dPcL").textContent="\u00a0";loadChart(id)});
   bindChart();DT={id};CH=null;
   paintHead(id);loadChart(id);loadKz(id)}
 async function paintHead(id){
   const m=meta(id);let q=null;try{q=await quote(id)}catch(e){}
   if(S.id!==id||!$("dPx"))return;
   if(!q){$("dPx").textContent="–";$("dPc").textContent="–";$("dMeta").textContent=m.m==="k"?(D.okK?"Dieser Coin wurde bei Binance nicht gefunden.":"Krypto-Kurse (Binance) sind gerade nicht erreichbar."):"Für diesen Wert liegen keine Kurse vor.";return}
-  $("dPx").innerHTML=`${fp(q.p)}<small>${esc(m.m==="k"?"USD":m.cur)}</small>`;$("dPc").textContent=fpc(q.d);$("dPc").className="badge big "+cls(q.d);
+  $("dPx").innerHTML=`${fp(q.p)}<small>${esc(m.m==="k"?"USD":m.cur)}</small>`;DT.q=q;setBadge();
   const parts=[];const code=CCY[m.cur];
   if(code&&m.kind!=="Index"){const fx=await fxRates();if(S.id!==id||!$("dMeta"))return;if(fx&&fx[code])parts.push("≈ "+fp(q.p/fx[code])+" €")}
-  if(m.m==="k")parts.push("Binance · live · Änderung 24 Std.");
+  if(S.range!=="1T"&&ok(q.d))parts.push("heute "+fpc(q.d));
+  if(m.m==="k")parts.push("Binance · live"+(D.K[m.s]&&D.K[m.s].day?"":" · Änderung 24 Std."));
   else if(D.stand&&m.a){const t=new Date(D.stand);parts.push("Stand "+fDate(t)+" "+fTime(t)+" Uhr · Heimatbörse, verzögert")}
   else parts.push("Yahoo Finance · stündlich");
   $("dMeta").textContent=parts.join(" · ")}
@@ -327,6 +340,10 @@ async function paintHead(id){
 // Kursreihe für den gewählten Zeitraum → {pts:[{t,c}], ref, src}
 const lastSession=rows=>{let i=rows.length-1;while(i>0&&rows[i][0]-rows[i-1][0]<3*36e5)i--;return rows.slice(i)};
 async function series(id,r){const{m,s}=parse(id);
+  if(m==="k"&&r==="1T"){const mid=midnight(),u=iv=>`${BN}klines?symbol=${encodeURIComponent(s)}USDT&interval=${iv}&startTime=${mid}&limit=1000`;
+    let j=await getJSON(u("5m"));if(Array.isArray(j)&&j.length<4)j=await getJSON(u("1m"));
+    if(!Array.isArray(j)||!j.length)throw new Error("keine Daten");
+    return{pts:[{t:+j[0][0],c:+j[0][1]},...j.map(x=>({t:Math.min(+x[0]+(j.length>1?+j[1][0]-+j[0][0]:3e5),Date.now()),c:+x[4]}))],ref:+j[0][1],src:"Binance · seit 0:00 Uhr"}}
   if(m==="k"){const cfg={"1T":["5m",288],"1W":["1h",168],"1M":["4h",186],"3M":["1d",92],"1J":["1d",366],"MAX":["1w",1000]}[r];
     const j=await getJSON(`${BN}klines?symbol=${encodeURIComponent(s)}USDT&interval=${cfg[0]}&limit=${cfg[1]}`);
     if(!Array.isArray(j)||!j.length)throw new Error("keine Daten");
@@ -352,10 +369,15 @@ async function loadChart(id){const tok=++chartTok,r=S.range;$("cmsg").hidden=fal
   try{const sr=await series(id,r);if(tok!==chartTok||!$("cv"))return;
     if(!sr.pts||sr.pts.length<2)throw new Error("zu wenig Daten");
     CH={...sr,r:sr.fix||r,hover:null,cur:meta(id).m==="k"?"$":meta(id).cur};$("cmsg").hidden=true;draw();
-    const base=ok(CH.ref)?CH.ref:CH.pts[0].c,last=CH.pts[CH.pts.length-1].c,ch=(last/base-1)*100;
-    const lab={"1T":"Heute / letzter Handelstag","1W":"1 Woche","1M":"1 Monat","3M":"3 Monate","1J":"1 Jahr","MAX":"Gesamter Zeitraum"}[sr.fix?"1M":r];
-    $("dRange").innerHTML=`${lab}: <b class="${cls(ch)}" style="color:var(--${ch>=0?"up":"down"})">${fpc(ch)}</b> · ${esc(sr.src)}`}
-  catch(e){if(tok!==chartTok||!$("cv"))return;CH=null;const g=$("cv").getContext("2d");g.clearRect(0,0,$("cv").width,$("cv").height);$("cmsg").hidden=false;$("cmsg").textContent="Für diesen Zeitraum sind keine Kurse verfügbar.";$("dRange").innerHTML="&nbsp;"}}
+    CH.lab={"1T":"Heute","1W":"1 Woche","1M":"1 Monat","3M":"3 Monate","1J":"1 Jahr","MAX":"Gesamter Zeitraum"}[sr.fix?"1M":r];setBadge();paintHead(id)}
+  catch(e){if(tok!==chartTok||!$("cv"))return;CH=null;setBadge();const g=$("cv").getContext("2d");g.clearRect(0,0,$("cv").width,$("cv").height);$("cmsg").hidden=false;$("cmsg").textContent="Für diesen Zeitraum sind keine Kurse verfügbar.";$("dRange").innerHTML="&nbsp;"}}
+// Prozent oben rechts: Heute = Tagesänderung, sonst Änderung vom Chart-Anfang bis zum aktuellen Kurs
+function setBadge(){const b=$("dPc");if(!b||!DT)return;const q=DT.q;let d=null,lab="Heute";
+  if(S.range==="1T"||!CH){d=q?q.d:null;if(S.range!=="1T")lab=""}
+  else{const base=ok(CH.ref)?CH.ref:CH.pts[0].c,last=CH.fix||!q?CH.pts[CH.pts.length-1].c:q.p;d=(last/base-1)*100;lab=CH.lab}
+  if(S.range==="1T"&&CH&&q&&!ok(d)){const base=ok(CH.ref)?CH.ref:CH.pts[0].c;d=(q.p/base-1)*100}
+  b.textContent=fpc(d);b.className="badge big "+cls(d);$("dPcL").textContent=lab||"\u00a0";
+  if($("dRange"))$("dRange").innerHTML=CH?`${esc(CH.lab)}: <b style="color:var(--${(d||0)>=0?"up":"down"})">${fpc(d)}</b> · ${esc(CH.src)}`:"&nbsp;"}
 function fx_(t,r,full){if(r==="1T")return full?fDate(t)+" "+fTime(t):fTime(t);if(r==="1W"||r==="1M")return full?fDate(t)+" "+fTime(t):fDate(t);return fDateY(t)}
 function draw(){const cv=$("cv");if(!cv||!CH)return;const dpr=window.devicePixelRatio||1,W=cv.clientWidth,H=cv.clientHeight;if(!W||!H)return;
   cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);const g=cv.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,W,H);
@@ -414,7 +436,7 @@ async function loadKz(id){const m=meta(id);
     note=k.u?"Unternehmenszahlen: Yahoo Finance, Stand "+fDateY(k.u*864e5)+".":m.a.rut?"Für Russell-2000-Werte gibt es nur Kurs und 1-Monats-Verlauf, keine Unternehmenszahlen.":"Unternehmenszahlen (KGV, Dividende, Umsatz …) erscheinen nach dem ersten täglichen Datenabruf."}
   kzPaint(rows,note)}
 async function loadKzCrypto(id,m){const k=D.K[m.s],rows=[];
-  if(k)rows.push(["24-Std.-Hoch",fp(k.h)+" $"],["24-Std.-Tief",fp(k.l)+" $"],["Umsatz 24 Std. (Binance)",big(k.qv,"$")]);
+  if(k)rows.push(...(k.day?[["Eröffnung (0:00 Uhr)",fp(k.o)+" $"],["Tageshoch",fp(k.h)+" $"],["Tagestief",fp(k.l)+" $"],["24-Std.-Hoch",fp(k.h24)+" $"],["24-Std.-Tief",fp(k.l24)+" $"]]:[["24-Std.-Hoch",fp(k.h)+" $"],["24-Std.-Tief",fp(k.l)+" $"]]),["Umsatz 24 Std. (Binance)",big(k.qv,"$")]);
   kzPaint(rows,"Weitere Kennzahlen werden geladen …");
   let g=null;try{const j=await getJSON("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&symbols="+encodeURIComponent(m.s.toLowerCase())+"&price_change_percentage=7d,30d,1y&order=market_cap_desc",12000);
     if(Array.isArray(j)&&j.length)g=j.sort((a,b)=>(b.market_cap||0)-(a.market_cap||0))[0]}catch(e){}
