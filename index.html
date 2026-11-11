@@ -86,6 +86,8 @@ h2{font-size:1.05rem;font-weight:800;margin:0}
 .kz span{color:var(--muted)}.kz b{font:600 .86rem var(--f-num);text-align:right}
 .kz .up{color:var(--up)}.kz .down{color:var(--down)}
 .links{display:flex;gap:8px;flex-wrap:wrap}
+.ext{margin-top:6px;font-size:.92rem;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.ext b{font:700 1.1rem var(--f-body)}.ext .up{color:var(--up)}.ext .down{color:var(--down)}
+.eq{display:grid;grid-template-columns:auto 1fr 1fr auto;gap:0 12px;margin-top:6px;font-size:.86rem}.eq>*{padding:7px 0;border-bottom:1px solid var(--line)}.eq .h{color:var(--muted);font-size:.74rem;text-transform:uppercase;letter-spacing:.05em}.eq .r{text-align:right;font-family:var(--f-num);white-space:nowrap}.eq .up{color:var(--up)}.eq .down{color:var(--down)}
 /* Leiste unten */
 nav{position:fixed;z-index:20;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);display:flex;justify-content:center;padding-bottom:env(safe-area-inset-bottom)}
 nav a{flex:1;max-width:220px;text-align:center;padding:9px 4px 8px;color:var(--muted);text-decoration:none;font-size:.78rem;font-weight:600;display:grid;gap:1px}
@@ -138,6 +140,10 @@ const cloneG=g=>g.filter(x=>x&&typeof x==="object").map(x=>({k:String(x.k||""),n
 const RANGES=["1T","1W","1M","3M","1J","MAX"];
 
 const $=id=>document.getElementById(id);
+// TradingView-Symbole
+const TVIDX={"^GSPC":"SP:SPX","^NDX":"NASDAQ:NDX","^DJI":"DJ:DJI","^RUT":"TVC:RUT","^GDAXI":"XETR:DAX","^MDAXI":"XETR:MDAX","^TECDAX":"XETR:TDXP","^STOXX50E":"TVC:SX5E","^HSI":"TVC:HSI","^N225":"TVC:NI225","^KS11":"TVC:KOSPI","GC=F":"COMEX:GC1!","SI=F":"COMEX:SI1!","CL=F":"NYMEX:CL1!","BZ=F":"TVC:UKOIL","NG=F":"NYMEX:NG1!","HG=F":"COMEX:HG1!","PL=F":"NYMEX:PL1!","PA=F":"NYMEX:PA1!"};
+const YEX={HK:"HKEX",T:"TSE",KS:"KRX",DE:"XETR",PA:"EURONEXT",AS:"EURONEXT",BR:"EURONEXT",MI:"MIL",MC:"BME",HE:"OMXHEX",L:"LSE",SW:"SIX"};
+function tvSym(m){if(m.m==="k")return"BINANCE:"+m.s+"USDT";const y=m.s;if(TVIDX[y])return TVIDX[y];const x=y.match(/^(.+)\.([A-Z]{1,2})$/);if(x&&YEX[x[2]])return YEX[x[2]]+":"+(x[2]==="HK"?x[1].replace(/^0+/,""):x[1].replace(/-/g,"_"));return y.replace(/-/g,".")}
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const LS=(k,v)=>{try{if(v===undefined)return JSON.parse(localStorage.getItem(k)||"null");localStorage.setItem(k,JSON.stringify(v))}catch(e){return null}};
 async function getJSON(u,ms=20000){const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);try{const r=await fetch(u,{signal:c.signal});if(!r.ok)throw new Error("HTTP "+r.status);return await r.json()}finally{clearTimeout(t)}}
@@ -309,12 +315,16 @@ function vDetail(id){
       <div class="row" style="gap:6px"><button class="ico ${inWl?"on":""}" id="bWl" title="Watchlist" aria-label="Watchlist">${inWl?"★":"☆"}</button><button class="ico ${inT?"on":""}" id="bT" title="Zur Übersicht" aria-label="Zur Übersicht">▦</button></div></div>
     <div class="row" style="margin-top:8px;align-items:flex-start"><div class="px" id="dPx">…</div><div style="text-align:right"><span class="badge big" id="dPc">…</span><div class="sub" id="dPcL">&nbsp;</div></div></div>
     <div class="sub" id="dMeta">&nbsp;</div>
+    <div class="ext" id="dExt" hidden></div>
     <div class="chart" id="chart"><canvas id="cv"></canvas><div class="tip" id="tip" hidden></div><div class="msg" id="cmsg">Chart wird geladen …</div></div>
     <div class="seg" role="group" aria-label="Zeitraum">${RANGES.map(r=>`<button data-r="${r}" aria-pressed="${r===S.range}">${r}</button>`).join("")}</div>
     <div class="sub" id="dRange" style="margin-top:8px">&nbsp;</div>
    </div>
    <div class="card"><h2>Kennzahlen</h2><div class="kz" id="kz"><div><span>werden geladen …</span><b></b></div></div><div class="sub" id="kzNote" style="margin-top:8px"></div></div>
+   <div class="card" id="ernC" hidden><h2>Quartalszahlen (Earnings)</h2><div class="kz" id="ern"></div><div id="ernH"></div><div class="sub" id="ernNote" style="margin-top:8px"></div></div>
    <div class="card wide links">
+     <a class="btn" target="_blank" rel="noopener" href="https://de.tradingview.com/chart/?symbol=${encodeURIComponent(tvSym(m))}">📈 TradingView</a>
+     ${m.m==="k"?`<a class="btn" href="https://chart.kompassapps.de/#s=${encodeURIComponent(m.s)}&tf=4h">⚡ Live-Chart</a>`:""}
      <a class="btn" href="https://scanner.kompassapps.de/chart.html#m=${m.m}&s=${encodeURIComponent(m.s)}&tf=${m.m==="k"?"4h":"1d"}">✦ Im Chart-Bot öffnen</a>
      <a class="btn" target="_blank" rel="noopener" href="https://news.google.com/search?q=${encodeURIComponent(m.name+(m.m==="k"?" Krypto":m.kind==="Aktie"?" Aktie":""))}&hl=de&gl=DE&ceid=DE:de">📰 Nachrichten</a>
      ${m.m==="k"?`<a class="btn" target="_blank" rel="noopener" href="https://www.coingecko.com/de/search?query=${encodeURIComponent(m.s)}">CoinGecko</a>`:m.kind==="Aktie"?`<a class="btn" target="_blank" rel="noopener" href="https://finance.yahoo.com/quote/${encodeURIComponent(m.s)}">Yahoo Finance</a>`:""}
@@ -335,7 +345,14 @@ async function paintHead(id){
   if(m.m==="k")parts.push("Binance · live"+(D.K[m.s]&&D.K[m.s].day?"":" · Änderung 24 Std."));
   else if(D.stand&&m.a){const t=new Date(D.stand);parts.push("Stand "+fDate(t)+" "+fTime(t)+" Uhr · Heimatbörse, verzögert")}
   else parts.push("Yahoo Finance · stündlich");
-  $("dMeta").textContent=parts.join(" · ")}
+  $("dMeta").textContent=parts.join(" · ");paintExt(id)}
+// Vor-/Nachbörse (nur US-Aktien): Kurs nach Handelsschluss bzw. vor Handelsbeginn
+async function paintExt(id){const m=meta(id),el=$("dExt");if(!el)return;
+  if(!m.a||m.a.rut&&!0||/[.^=]/.test(m.s)){el.hidden=true;return}
+  const ia=await intraday(m.s);if(S.id!==id||!$("dExt"))return;
+  if(!ia||!ok(ia.xp)||!ia.xt||!ia.k||!ia.k.length||Date.now()-ia.xt>18*36e5){el.hidden=true;return}
+  const base=ia.k[ia.k.length-1][1],d=(ia.xp/base-1)*100,abs=ia.xp-base;
+  el.innerHTML=`<span class="label">${ia.xk==="pre"?"Vorbörse":"Nachbörse"}</span><b>${fp(ia.xp)} ${esc(m.cur)}</b><span class="${cls(d)}">${abs>=0?"+":""}${fp(abs)} (${fpc(d)})</span><span class="sub">${fTime(ia.xt)} Uhr · verzögert</span>`;el.hidden=false}
 
 // Kursreihe für den gewählten Zeitraum → {pts:[{t,c}], ref, src}
 const lastSession=rows=>{let i=rows.length-1;while(i>0&&rows[i][0]-rows[i-1][0]<3*36e5)i--;return rows.slice(i)};
@@ -434,7 +451,22 @@ async function loadKz(id){const m=meta(id);
       ["Verschuldung / Eigenkapital",ok(k.de)?nf(k.de,0)+" %":null],["Kursziel Analysten (Ø)",ok(k.tgt)?nf(k.tgt,2)+" "+cur+(p?" ("+fpc((k.tgt/p-1)*100)+")":""):null],
       ["Analysten-Empfehlung",k.rec&&REC[k.rec]?REC[k.rec]+(k.na?" ("+k.na+")":""):null],["Mitarbeiter",ok(k.emp)?nf(k.emp,0):null],["Branche",k.bra||m.a.sec||null],["Land",k.land||null]);
     note=k.u?"Unternehmenszahlen: Yahoo Finance, Stand "+fDateY(k.u*864e5)+".":m.a.rut?"Für Russell-2000-Werte gibt es nur Kurs und 1-Monats-Verlauf, keine Unternehmenszahlen.":"Unternehmenszahlen (KGV, Dividende, Umsatz …) erscheinen nach dem ersten täglichen Datenabruf."}
-  kzPaint(rows,note)}
+  kzPaint(rows,note);if(m.a)paintEarnings(m,(KZ.s||{})[m.s]||{})}
+const WT=["So","Mo","Di","Mi","Do","Fr","Sa"];
+function paintEarnings(m,k){const e=k.e,box=$("ernC");if(!box)return;
+  if(!e||(!e.n&&!e.h&&!ok(e.ee))){box.hidden=true;return}
+  const cur=m.cur,rows=[];
+  if(e.n){const t=e.n*1000,d0=new Date(t),days=Math.round((new Date(d0).setHours(0,0,0,0)-new Date().setHours(0,0,0,0))/864e5);
+    rows.push(["Nächste Zahlen",WT[d0.getDay()]+", "+fDateY(t)+" · "+(days<=0?"heute":days===1?"morgen":"in "+days+" Tagen")+(e.nx?" (geschätzt)":"")])}
+  else rows.push(["Nächste Zahlen","noch kein Termin"]);
+  if(ok(e.ee))rows.push(["Erwarteter Gewinn je Aktie (Quartal)",nf(e.ee,2)+" "+cur]);
+  if(ok(e.re))rows.push(["Erwarteter Umsatz (Quartal)",big(e.re,k.fc||cur)]);
+  $("ern").innerHTML=rows.map(x=>`<div><span>${esc(x[0])}</span><b>${esc(x[1])}</b></div>`).join("");
+  const h=(e.h||[]).slice().reverse();
+  $("ernH").innerHTML=h.length?`<div class="eq"><span class="h">Quartal</span><span class="h r">Erwartet</span><span class="h r">Tatsächlich</span><span class="h r">Abweichung</span>${h.map(r=>{const[dd,est,act]=r,sp=ok(est)&&est!==0?(act-est)/Math.abs(est)*100:null,dt=new Date(dd*864e5);
+    return`<span>${p2(dt.getMonth()+1)}/${String(dt.getFullYear()).slice(2)}</span><span class="r">${ok(est)?nf(est,2):"–"}</span><span class="r">${nf(act,2)}</span><span class="r ${cls(sp)}">${ok(sp)?(sp>=0?"▲ ":"▼ ")+fpc(sp):"–"}</span>`}).join("")}</div>`:"";
+  $("ernNote").innerHTML="Gewinn je Aktie in "+esc(cur)+" · ▲ besser / ▼ schlechter als erwartet · Quelle: Yahoo Finance"+(/[.^=]/.test(m.s)?"":` · <a href="https://www.earningswhispers.com/epsdetails/${encodeURIComponent(m.s)}" target="_blank" rel="noopener">Earnings Whispers</a>`);
+  box.hidden=false}
 async function loadKzCrypto(id,m){const k=D.K[m.s],rows=[];
   if(k)rows.push(...(k.day?[["Eröffnung (0:00 Uhr)",fp(k.o)+" $"],["Tageshoch",fp(k.h)+" $"],["Tagestief",fp(k.l)+" $"],["24-Std.-Hoch",fp(k.h24)+" $"],["24-Std.-Tief",fp(k.l24)+" $"]]:[["24-Std.-Hoch",fp(k.h)+" $"],["24-Std.-Tief",fp(k.l)+" $"]]),["Umsatz 24 Std. (Binance)",big(k.qv,"$")]);
   kzPaint(rows,"Weitere Kennzahlen werden geladen …");
