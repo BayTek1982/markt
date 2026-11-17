@@ -110,7 +110,7 @@ nav a.on{color:var(--accent)}
     </div>
   </header>
   <main id="view"></main>
-  <div class="sub" id="foot">Aktien, Indizes und Rohstoffe: Yahoo Finance, zeitverzögert (Kurse alle 30 Min., Tagesverlauf alle 15 Min.). Krypto: Binance, live. Euro-Anzeige mit aktuellem Wechselkurs umgerechnet (Prozente in Originalwährung). Keine Anlageberatung.</div>
+  <div class="sub" id="foot">Aktien, Indizes und Rohstoffe: Yahoo Finance, zeitverzögert (Aktualisierung alle 10 Min.). Krypto: Binance, live. Euro-Anzeige mit aktuellem Wechselkurs umgerechnet (Prozente in Originalwährung). Keine Anlageberatung.</div>
 </div>
 <nav>
   <a href="#uebersicht" data-v="uebersicht"><i>▦</i>Übersicht</a>
@@ -224,7 +224,12 @@ function meta(id){const{m,s}=parse(id);
 // Kurs + Tagesänderung
 async function quote(id){const{m,s}=parse(id);
   if(m==="k"){const k=D.K[s];return k?{p:k.p,d:k.d}:null}
-  const a=D.A[s];if(a&&ok(a.p))return{p:a.p,d:a.d};
+  const a=D.A[s];
+  if(a&&ok(a.p)){const ts=D.stand?Date.parse(D.stand):0;
+    // 5-Minuten-Kurse (alle 10 Min. abgerufen) nehmen, wenn sie frischer sind als die Kursliste (alle 30 Min.)
+    if(!a.rut){const ia=await intraday(s);if(ia&&Array.isArray(ia.k)&&ia.k.length&&ok(ia.pc)&&ia.pc>0){const L=ia.k[ia.k.length-1],tl=L[0]+3e5;
+      if(tl>ts)return{p:L[1],d:(L[1]/ia.pc-1)*100,t:tl}}}
+    return{p:a.p,d:a.d,t:ts||null}}
   const ia=await intraday(s);if(ia&&Array.isArray(ia.k)&&ia.k.length&&ok(ia.pc)&&ia.pc>0){const p=ia.k[ia.k.length-1][1];return{p,d:(p/ia.pc-1)*100}}
   const c=await candles(s),d1=c["1d"]||[];if(d1.length<2)return null;
   const p=d1[d1.length-1][4],v=d1[d1.length-2][4];return{p,d:(p/v-1)*100}}
@@ -362,7 +367,7 @@ async function paintHead(id){
   else if(code&&code!=="EUR"&&m.kind!=="Index"){const fx=await fxRates();if(S.id!==id||!$("dMeta"))return;if(fx&&fx[code])parts.push("≈ "+fp(q.p/fx[code])+" €")}
   if(S.range!=="1T"&&ok(q.d))parts.push("heute "+fpc(q.d));
   if(m.m==="k")parts.push("Binance · live"+(D.K[m.s]&&D.K[m.s].day?"":" · Änderung 24 Std."));
-  else if(D.stand&&m.a){const t=new Date(D.stand);parts.push("Stand "+fDate(t)+" "+fTime(t)+" Uhr · Heimatbörse, verzögert")}
+  else if((q.t||D.stand)&&m.a){const t=new Date(q.t||D.stand);parts.push("Stand "+fDate(t)+" "+fTime(t)+" Uhr · Heimatbörse, verzögert")}
   else parts.push("Yahoo Finance · stündlich");
   $("dMeta").textContent=parts.join(" · ");paintExt(id)}
 // Vor-/Nachbörse (nur US-Aktien): Kurs nach Handelsschluss bzw. vor Handelsbeginn
