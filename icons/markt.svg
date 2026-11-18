@@ -1,1 +1,49 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#0e131b"/><path d="M12 44l12-12 9 7 19-21" fill="none" stroke="#f0a33a" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M42 18h10v10" fill="none" stroke="#f0a33a" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="30%" cy="18%" r="95%">
+      <stop offset="0" stop-color="#1f2c44"/><stop offset=".55" stop-color="#101827"/><stop offset="1" stop-color="#070b13"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#b8711a"/><stop offset=".5" stop-color="#f4b552"/><stop offset="1" stop-color="#ffe2a3"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f4b552" stop-opacity=".95"/><stop offset="1" stop-color="#f4b552" stop-opacity=".25"/>
+    </linearGradient>
+    <linearGradient id="up" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5ff0a8"/><stop offset="1" stop-color="#1fa66a"/></linearGradient>
+    <linearGradient id="dn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8a7a"/><stop offset="1" stop-color="#d23a2e"/></linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="9" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <clipPath id="disc"><circle cx="256" cy="262" r="150"/></clipPath>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- feines Raster -->
+  <g stroke="#ffffff" stroke-opacity=".045" stroke-width="2">
+    <path d="M0 128H512M0 256H512M0 384H512M128 0V512M256 0V512M384 0V512"/>
+  </g>
+  <!-- Kompass-Ring mit Skala -->
+  <circle cx="256" cy="262" r="168" fill="none" stroke="url(#ring)" stroke-width="7"/>
+  <g stroke="#f4b552" stroke-linecap="round">
+    <g stroke-opacity=".9" stroke-width="7">
+      <path d="M256 82V108"/><path d="M256 416V442" stroke-opacity=".35"/><path d="M76 262H102" stroke-opacity=".35"/><path d="M410 262H436" stroke-opacity=".35"/>
+    </g>
+    <g stroke-opacity=".35" stroke-width="4">
+      <path d="M383.3 134.7l-12 12M128.7 134.7l12 12M128.7 389.3l12-12M383.3 389.3l-12-12"/>
+    </g>
+  </g>
+  <text x="256" y="73" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="34" fill="#f4b552" opacity=".0">N</text>
+  <!-- Kerzen im Kompass -->
+  <g clip-path="url(#disc)">
+    <circle cx="256" cy="262" r="150" fill="#0b1220" fill-opacity=".55"/>
+    <g stroke-linecap="round">
+      <path d="M176 262V352" stroke="#5ff0a8" stroke-width="6" opacity=".8"/><rect x="160" y="282" width="32" height="56" rx="7" fill="url(#up)"/>
+      <path d="M232 222V320" stroke="#ff8a7a" stroke-width="6" opacity=".8"/><rect x="216" y="240" width="32" height="62" rx="7" fill="url(#dn)"/>
+      <path d="M288 182V290" stroke="#5ff0a8" stroke-width="6" opacity=".8"/><rect x="272" y="204" width="32" height="70" rx="7" fill="url(#up)"/>
+      <path d="M344 140V246" stroke="#5ff0a8" stroke-width="6" opacity=".8"/><rect x="328" y="158" width="32" height="72" rx="7" fill="url(#up)"/>
+    </g>
+  </g>
+  <!-- Kompassnadel als Trendpfeil nach Nordost -->
+  <g filter="url(#glow)">
+    <path d="M130 392 L392 130" stroke="url(#gold)" stroke-width="16" stroke-linecap="round"/>
+    <path d="M412 110 L346 128 L394 176 Z" fill="#ffe2a3"/>
+  </g>
+  <circle cx="256" cy="262" r="17" fill="#0b1220" stroke="#ffe2a3" stroke-width="7"/>
+</svg>
